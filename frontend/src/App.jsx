@@ -1,9 +1,9 @@
 import "./App.css";
-import BookStore from "./Components/BookStore";
+import BookStore from "./components/BookStore";
 import AdminDashboard from "./Components/AdminDashboard";
 import ErrorBoundary from "./Components/ErrorBoundary";
-import { AuthProvider } from "./Components/AuthContext";
-import { useAuth } from "./Components/useAuth";
+import { AuthProvider } from "./components/AuthContext";
+import { useAuth } from "./components/useAuth";
 
 // Wrapper component to check user type
 const AppContent = () => {
