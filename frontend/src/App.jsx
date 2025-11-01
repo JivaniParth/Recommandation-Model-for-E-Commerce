@@ -4,6 +4,7 @@ import AdminDashboard from "./Components/AdminDashboard";
 import ErrorBoundary from "./Components/ErrorBoundary";
 import { AuthProvider } from "./components/AuthContext";
 import { useAuth } from "./components/useAuth";
+import APIDiagnostics from "./components/APIDiagnostics";
 
 // Wrapper component to check user type
 const AppContent = () => {
@@ -24,6 +25,7 @@ const AppContent = () => {
 
   // Regular bookstore for customers
   return <BookStore />;
+  // return <APIDiagnostics />;
 };
 
 export default function App() {
