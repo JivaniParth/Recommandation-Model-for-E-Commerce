@@ -1,5 +1,10 @@
 // ecommerce-backend/server.js
 require("dotenv").config();
+console.log("🔍 Environment check:");
+console.log("  DATABASE_URL exists:", !!process.env.DATABASE_URL);
+console.log("  JWT_SECRET exists:", !!process.env.JWT_SECRET);
+console.log("  PORT:", process.env.PORT || "using default");
+console.log("  Current directory:", __dirname);
 const express = require("express");
 const cors = require("cors");
 const jwt = require("jsonwebtoken");
@@ -22,7 +27,31 @@ app.use(express.json());
 const pool = new Pool({
   connectionString:
     process.env.DATABASE_URL ||
-    "postgresql://user:password@localhost:5432/bookstore",
+    "postgresql://postgres:bookstore123@localhost:5432/bookstore_db",
+});
+
+console.log("🔧 Testing database connection...");
+console.log(
+  "📝 Connection string:",
+  process.env.DATABASE_URL || "Using fallback"
+);
+
+pool.query("SELECT current_database(), current_user, version()", (err, res) => {
+  if (err) {
+    console.error("❌ DATABASE CONNECTION FAILED!");
+    console.error("❌ Error:", err.message);
+    console.error("❌ Code:", err.code);
+    console.error("❌ Hint:", err.hint);
+  } else {
+    console.log("✅ DATABASE CONNECTED SUCCESSFULLY!");
+    console.log("📊 Database:", res.rows[0].current_database);
+    console.log("👤 User:", res.rows[0].current_user);
+    console.log(
+      "🐘 PostgreSQL:",
+      res.rows[0].version.split(" ")[0],
+      res.rows[0].version.split(" ")[1]
+    );
+  }
 });
 
 // JWT Secret
@@ -367,10 +396,20 @@ app.get("/api/books/:id", async (req, res) => {
 // ==================== CATEGORIES ====================
 
 app.get("/api/categories", async (req, res) => {
+  console.log("📞 Categories endpoint called");
+
   try {
+    console.log("🔍 Attempting database query...");
+    console.log(
+      "📊 Database URL:",
+      process.env.DATABASE_URL ? "Using .env variable" : "Using fallback"
+    );
+
     const result = await pool.query(
       "SELECT category_id as id, category_name as name, description FROM categories ORDER BY category_name"
     );
+
+    console.log("✅ Query successful! Found", result.rows.length, "categories");
 
     // Add "All" category at the beginning
     const categories = [
@@ -378,9 +417,13 @@ app.get("/api/categories", async (req, res) => {
       ...result.rows,
     ];
 
+    console.log("📤 Sending response with", categories.length, "categories");
     res.json({ success: true, categories });
   } catch (error) {
-    console.error("Get categories error:", error);
+    console.error("❌ Get categories error:", error);
+    console.error("❌ Error code:", error.code);
+    console.error("❌ Error message:", error.message);
+    console.error("❌ Error stack:", error.stack);
     res
       .status(500)
       .json({ success: false, error: "Failed to fetch categories" });

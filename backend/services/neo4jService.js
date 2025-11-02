@@ -7,7 +7,7 @@ let usingNeo4j = false;
 
 const NEO4J_URI = process.env.NEO4J_URI;
 const NEO4J_USER = process.env.NEO4J_USER || "neo4j";
-const NEO4J_PASSWORD = process.env.NEO4J_PASSWORD || "password";
+const NEO4J_PASSWORD = process.env.NEO4J_PASSWORD || "bookstore123";
 
 if (NEO4J_URI) {
   try {
