@@ -1,103 +1,156 @@
-# Recommandation Model for E-Commerce (scaffold)
+# E-Commerce Backend (Oracle Database)
 
-This repository is a scaffold for the recommendation model experiments described in the project plan.
-It contains a minimal Node.js + Express API with: Postgres service stubs, Neo4j integration, and a sync script.
+This is the Oracle Database backend for the Online Book Store application.
 
-## What is included
+## Prerequisites
 
-- `index.js` — express server and route wiring
-- `routes/recommendations.js` — unified recommendations endpoint
-- `services/postgresService.js` — Postgres connection + placeholder SQL recommendation functions
-- `services/neo4jService.js` — Neo4j connection + graph-based recommendation function
-- `scripts/syncToNeo4j.js` — script to copy users/products/purchases from Postgres to Neo4j using drivers
-- `package.json` — dependencies and scripts
-- `oracle/` — Oracle SQL scripts (DDL, seed, PL/SQL helpers)
-- `services/oracleService.js` — Oracle connection and recommendation helpers (uses oracledb)
-- `routes/oracle.js` — HTTP API to fetch Oracle-backed recommendations
+1. **Oracle Database** - Oracle XE or Oracle Database (running on `localhost:1521/freepdb1`)
+2. **Node.js** - Version 14 or higher
+3. **Oracle Instant Client** - Required for the `oracledb` npm package
 
-## Quick setup
+## Oracle Instant Client Setup (Windows)
 
-1. Copy `.env.example` (create a `.env` file) and set values:
+The `oracledb` npm package requires Oracle Instant Client libraries to connect to Oracle Database.
 
+### Step 1: Download Oracle Instant Client
+
+1. Visit: https://www.oracle.com/database/technologies/instant-client/winx64-64-downloads.html
+2. Download **"Instant Client Basic Light"** or **"Instant Client Basic"** (ZIP file)
+   - For Oracle 21c: Download version 21.x
+   - For Oracle 19c: Download version 19.x
+
+### Step 2: Extract and Install
+
+1. Extract the ZIP file to a directory, for example:
+
+   - `C:\oracle\instantclient_23_9`
+   - `C:\oracle\instantclient_21_14`
+
+2. **Option A: Add to PATH (Recommended)**
+
+   - Open **System Properties** → **Environment Variables**
+   - Edit the **PATH** system variable
+   - Add your Instant Client directory (e.g., `C:\oracle\instantclient_23_9`)
+   - Click **OK** and restart your terminal
+
+3. **Option B: Configure in .env file**
+   - Set the path in your `.env` file:
+   ```
+   ORACLE_INSTANT_CLIENT_PATH=C:\\oracle\\instantclient_23_9
+   ```
+
+### Step 3: Install Visual C++ Redistributable
+
+Oracle Instant Client requires Microsoft Visual C++ Redistributable:
+
+- Download from: https://aka.ms/vs/17/release/vc_redist.x64.exe
+- Install and restart your computer if prompted
+
+## Environment Configuration
+
+Create or update your `.env` file:
+
+```properties
+# Database
+ORACLE_USER="C##BOOKSTORE"
+ORACLE_PASSWORD="bookstore123"
+ORACLE_CONNECTION_STRING=localhost:1521/freepdb1
+
+# Oracle Instant Client
+# Set this to your Oracle Instant Client installation directory
+ORACLE_INSTANT_CLIENT_PATH=C:\\oracle\\instantclient_23_9
+
+# JWT
+JWT_SECRET=mySecretKey123!BookStoreApp2025
+
+# Server
+PORT=5000
 ```
-# Postgres
-DATABASE_URL=postgresql://user:password@localhost:5432/shop
-# Neo4j
-NEO4J_URI=bolt://localhost:7687
-NEO4J_USER=neo4j
-NEO4J_PASSWORD=password
-PORT=4000
-```
 
-2. Install dependencies
-
-PowerShell:
+## Installation
 
 ```powershell
 npm install
 ```
 
-3. Start server
+## Database Setup
+
+1. Create the Oracle user and schema:
+
+```sql
+-- Run db/oracle-user.sql as SYSTEM or admin user
+```
+
+2. Create tables:
+
+```sql
+-- Run db/oracle-schema.sql as C##BOOKSTORE user
+```
+
+3. Seed data:
+
+```sql
+-- Run db/oracle-seed.sql as C##BOOKSTORE user
+```
+
+## Running the Server
+
+Development mode (with auto-restart):
 
 ```powershell
 npm run dev
-# or
+```
+
+Production mode:
+
+```powershell
 npm start
 ```
 
-4. Sync data from Postgres to Neo4j (if your Postgres has `users`, `products`, `purchases` tables):
+## API Endpoints
 
-```powershell
-npm run sync
-```
+- **GET** `/api/admin/stats` - Get dashboard statistics
+- **GET** `/api/admin/users` - Get all users
+- **GET** `/api/admin/books` - Get all books
+- **GET** `/api/admin/orders` - Get all orders
+- And more... (check `routes/admin.js` for full list)
 
-5. Try the API
+## Troubleshooting
 
-```powershell
-# Graph-based recommendations
-curl http://localhost:4000/api/recommendations/1?model=graph
+### Error: DPI-1047: Cannot locate a 64-bit Oracle Client library
 
-# Collaborative
-curl http://localhost:4000/api/recommendations/1?model=collab
+**Solution:**
 
-# Content based
-curl http://localhost:4000/api/recommendations/1?model=content
-```
+1. Verify Oracle Instant Client is installed in the directory specified in your `.env` file
+2. Make sure the path uses double backslashes: `C:\\oracle\\instantclient_23_9`
+3. Ensure Visual C++ Redistributable is installed
+4. Restart your terminal/IDE after modifying environment variables
 
-## Notes & next steps
+### Error: ORA-12541: TNS:no listener
 
-This scaffold previously included Oracle schema and helper scripts. Oracle support has been removed from this folder; the remaining services provide Postgres and Neo4j stubs/mocks for local prototyping. Use the `migrations/` SQL files for Postgres (if you run a Postgres instance) and the `scripts/` helpers to sync to Neo4j.
+**Solution:**
 
-## A/B assignment endpoints
+1. Verify Oracle Database is running
+2. Check the connection string in your `.env` file
+3. Test connectivity: `sqlplus C##BOOKSTORE/bookstore123@localhost:1521/freepdb1`
 
-Run the migration SQL in `migrations/001_create_ab_tables.sql` against your Postgres DB (psql or your migration tool).
+### Error: ORA-01017: invalid username/password
 
-Endpoints added:
+**Solution:**
 
-- POST /api/ab/assign-all?models=1,2,3
+1. Verify the Oracle user exists: `SELECT username FROM all_users WHERE username = 'C##BOOKSTORE';`
+2. Check credentials in your `.env` file
+3. Recreate the user if needed using `db/oracle-user.sql`
 
-  - Bulk assign all users to provided model ids (round-robin). If `models` not provided, defaults to `1,2,3`.
+## Development
 
-- GET /api/ab/user/:userId
+This backend uses:
 
-  - Returns the user's assigned model. If the user has no assignment, a random active model is chosen and assigned.
+- **Express.js** - Web framework
+- **oracledb** - Oracle Database driver
+- **dotenv** - Environment variable management
+- **nodemon** - Development auto-reload
 
-Integrate this API with the Online Book Store frontend by replacing the recommendation calls with the new API.
+## License
 
-## Event logging (impressions & clicks)
-
-Run the migration `migrations/002_create_events.sql` to create the `recommendation_events` table used for logging.
-
-Endpoints added:
-
-- POST /api/events
-
-  - Body: { user_id, product_id, model_id, event_type, metadata }
-  - Logs an event (impression, click, purchase, etc.). `metadata` is optional JSON.
-
-- GET /api/events/model/:modelId/counts
-  - Returns counts grouped by event_type for the given model id.
-
-## References
-
-See `PROJECTPLAN.md` in the parent directory for the full plan and timeline.
+MIT

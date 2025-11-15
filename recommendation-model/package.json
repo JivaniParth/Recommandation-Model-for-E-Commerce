@@ -1,0 +1,22 @@
+{
+  "name": "recommandation-model-ecommerce",
+  "version": "0.1.0",
+  "description": "Recommendation model prototypes (Postgres + Neo4j) for e-commerce — scaffolded from Online Book Store",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.0.0",
+    "express": "^4.18.2",
+    "neo4j-driver": "^6.0.1"
+  },
+  "devDependencies": {
+    "nodemon": "^2.0.22"
+  }
+}
