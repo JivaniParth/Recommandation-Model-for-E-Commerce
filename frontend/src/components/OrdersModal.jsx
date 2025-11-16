@@ -60,6 +60,8 @@ const OrdersModal = ({ isOpen, onClose }) => {
   };
 
   const getStatusIcon = (status) => {
+    if (!status) return <Clock className="w-5 h-5 text-gray-500" />;
+
     switch (status.toLowerCase()) {
       case "pending":
         return <Clock className="w-5 h-5 text-yellow-500" />;
@@ -78,6 +80,8 @@ const OrdersModal = ({ isOpen, onClose }) => {
   };
 
   const getStatusColor = (status) => {
+    if (!status) return "bg-gray-100 text-gray-800";
+
     switch (status.toLowerCase()) {
       case "pending":
         return "bg-yellow-100 text-yellow-800";
@@ -221,8 +225,10 @@ const OrdersModal = ({ isOpen, onClose }) => {
                                     order.status
                                   )}`}
                                 >
-                                  {order.status.charAt(0).toUpperCase() +
-                                    order.status.slice(1)}
+                                  {order.status
+                                    ? order.status.charAt(0).toUpperCase() +
+                                      order.status.slice(1)
+                                    : "Unknown"}
                                 </span>
                               </div>
                               <p className="text-sm text-gray-600 mt-1">
@@ -265,9 +271,9 @@ const OrdersModal = ({ isOpen, onClose }) => {
                                 </h4>
                                 <div className="space-y-3">
                                   {details.items && details.items.length > 0 ? (
-                                    details.items.map((item) => (
+                                    details.items.map((item, index) => (
                                       <div
-                                        key={item.id}
+                                        key={item.isbn || item.id || index}
                                         className="flex items-center space-x-3 bg-white p-3 rounded-lg"
                                       >
                                         <img
@@ -292,15 +298,21 @@ const OrdersModal = ({ isOpen, onClose }) => {
                                           <p className="text-sm text-gray-700 mt-1">
                                             Qty: {item.quantity} × $
                                             {parseFloat(
-                                              item.pricePerItem
+                                              item.price ||
+                                                item.pricePerItem ||
+                                                0
                                             ).toFixed(2)}
                                           </p>
                                         </div>
                                         <p className="text-sm font-semibold text-gray-900">
                                           $
-                                          {parseFloat(item.totalPrice).toFixed(
-                                            2
-                                          )}
+                                          {(
+                                            parseFloat(
+                                              item.price ||
+                                                item.pricePerItem ||
+                                                0
+                                            ) * (item.quantity || 1)
+                                          ).toFixed(2)}
                                         </p>
                                       </div>
                                     ))
@@ -317,56 +329,63 @@ const OrdersModal = ({ isOpen, onClose }) => {
                                   Order Summary
                                 </h4>
                                 <div className="bg-white p-4 rounded-lg space-y-2">
-                                  <div className="flex justify-between text-sm">
-                                    <span className="text-gray-600">
-                                      Subtotal:
-                                    </span>
-                                    <span className="text-gray-900">
-                                      $
-                                      {details.totals?.subtotal
-                                        ? parseFloat(
-                                            details.totals.subtotal
-                                          ).toFixed(2)
-                                        : "0.00"}
-                                    </span>
-                                  </div>
-                                  <div className="flex justify-between text-sm">
-                                    <span className="text-gray-600">Tax:</span>
-                                    <span className="text-gray-900">
-                                      $
-                                      {details.totals?.taxAmount
-                                        ? parseFloat(
-                                            details.totals.taxAmount
-                                          ).toFixed(2)
-                                        : "0.00"}
-                                    </span>
-                                  </div>
-                                  <div className="flex justify-between text-sm">
-                                    <span className="text-gray-600">
-                                      Shipping:
-                                    </span>
-                                    <span className="text-gray-900">
-                                      {details.totals?.shippingCost === 0
-                                        ? "FREE"
-                                        : `$${parseFloat(
-                                            details.totals?.shippingCost || 0
-                                          ).toFixed(2)}`}
-                                    </span>
-                                  </div>
-                                  <div className="border-t border-gray-200 pt-2 mt-2">
-                                    <div className="flex justify-between font-semibold">
-                                      <span className="text-gray-900">
-                                        Total:
-                                      </span>
-                                      <span className="text-indigo-600">
-                                        $
-                                        {parseFloat(
-                                          details.totals?.totalAmount ||
-                                            order.totalAmount
-                                        ).toFixed(2)}
-                                      </span>
-                                    </div>
-                                  </div>
+                                  {(() => {
+                                    const itemsSubtotal =
+                                      details.items?.reduce((sum, item) => {
+                                        return (
+                                          sum +
+                                          parseFloat(item.price || 0) *
+                                            (item.quantity || 0)
+                                        );
+                                      }, 0) || 0;
+
+                                    const totalAmount = parseFloat(
+                                      order.totalAmount || 0
+                                    );
+                                    const tax = totalAmount - itemsSubtotal;
+                                    const shipping = 0; // Assuming free shipping
+
+                                    return (
+                                      <>
+                                        <div className="flex justify-between text-sm">
+                                          <span className="text-gray-600">
+                                            Subtotal:
+                                          </span>
+                                          <span className="text-gray-900">
+                                            ${itemsSubtotal.toFixed(2)}
+                                          </span>
+                                        </div>
+                                        <div className="flex justify-between text-sm">
+                                          <span className="text-gray-600">
+                                            Tax:
+                                          </span>
+                                          <span className="text-gray-900">
+                                            ${tax > 0 ? tax.toFixed(2) : "0.00"}
+                                          </span>
+                                        </div>
+                                        <div className="flex justify-between text-sm">
+                                          <span className="text-gray-600">
+                                            Shipping:
+                                          </span>
+                                          <span className="text-green-600 font-medium">
+                                            {shipping === 0
+                                              ? "Free"
+                                              : `$${shipping.toFixed(2)}`}
+                                          </span>
+                                        </div>
+                                        <div className="border-t border-gray-200 pt-2 mt-2">
+                                          <div className="flex justify-between font-semibold">
+                                            <span className="text-gray-900">
+                                              Total:
+                                            </span>
+                                            <span className="text-indigo-600">
+                                              ${totalAmount.toFixed(2)}
+                                            </span>
+                                          </div>
+                                        </div>
+                                      </>
+                                    );
+                                  })()}
                                 </div>
 
                                 <h4 className="font-semibold text-gray-900 mt-4 mb-2">

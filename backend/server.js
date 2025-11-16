@@ -963,7 +963,7 @@ app.post("/api/orders", authMiddleware, async (req, res) => {
     // Generate order number
     const orderNumber = `ORD-${Date.now()}-${req.userId}`;
 
-    // Insert order (without RETURNING clause)
+    // Insert order with autoCommit so we can read it back
     await db.execute(
       `INSERT INTO orders (user_id, order_number, total_amount, shipping_address, payment_method, payment_status)
        VALUES (:userId, :orderNumber, :totalAmount, :shippingAddress, :paymentMethod, 'pending')`,
@@ -974,7 +974,7 @@ app.post("/api/orders", authMiddleware, async (req, res) => {
         shippingAddress: shippingAddress || null,
         paymentMethod: paymentMethod || "COD",
       },
-      { autoCommit: false }
+      { autoCommit: true }
     );
 
     // Get the order_id that was just inserted
@@ -984,7 +984,12 @@ app.post("/api/orders", authMiddleware, async (req, res) => {
       { outFormat: db.OUT_FORMAT_OBJECT }
     );
 
+    if (!orderResult.rows || orderResult.rows.length === 0) {
+      throw new Error("Failed to retrieve order after insertion");
+    }
+
     const orderId = orderResult.rows[0].ORDER_ID;
+    console.log("  ✅ Order created with ID:", orderId);
 
     // Insert order items
     for (const item of cartResult.rows) {
@@ -997,7 +1002,7 @@ app.post("/api/orders", authMiddleware, async (req, res) => {
           quantity: item.QUANTITY,
           price: item.PRICE,
         },
-        { autoCommit: false }
+        { autoCommit: true }
       );
     }
 
@@ -1005,11 +1010,10 @@ app.post("/api/orders", authMiddleware, async (req, res) => {
     await db.execute(
       `DELETE FROM cart_items WHERE user_id = :userId`,
       { userId: req.userId },
-      { autoCommit: false }
+      { autoCommit: true }
     );
 
-    // Commit transaction
-    await db.execute("COMMIT");
+    console.log("  ✅ Order completed successfully");
 
     res.json({
       success: true,
@@ -1025,7 +1029,6 @@ app.post("/api/orders", authMiddleware, async (req, res) => {
       code: error.errorNum,
       offset: error.offset,
     });
-    await db.execute("ROLLBACK");
     res.status(500).json({ success: false, error: "Failed to create order" });
   }
 });
@@ -1055,10 +1058,11 @@ app.get("/api/orders", authMiddleware, async (req, res) => {
         id: row.ID,
         orderNumber: row.ORDERNUMBER,
         totalAmount: row.TOTALAMOUNT,
+        status: row.PAYMENTSTATUS || "pending",
         paymentStatus: row.PAYMENTSTATUS,
         shippingAddress: row.SHIPPINGADDRESS,
         createdAt: row.CREATEDAT ? row.CREATEDAT.toISOString() : null,
-        itemCount: row.ITEMCOUNT,
+        itemsCount: row.ITEMCOUNT || 0,
       })),
     });
   } catch (error) {
@@ -1109,12 +1113,13 @@ app.get("/api/orders/:orderId", authMiddleware, async (req, res) => {
 
     const order = orderResult.rows[0];
 
-    res.json({
+    const responseData = {
       success: true,
       order: {
         id: order.ID,
         orderNumber: order.ORDERNUMBER,
         totalAmount: order.TOTALAMOUNT,
+        status: order.PAYMENTSTATUS || "pending",
         paymentStatus: order.PAYMENTSTATUS,
         shippingAddress: order.SHIPPINGADDRESS,
         paymentMethod: order.PAYMENTMETHOD,
@@ -1128,7 +1133,14 @@ app.get("/api/orders/:orderId", authMiddleware, async (req, res) => {
           author: item.AUTHOR,
         })),
       },
-    });
+    };
+
+    console.log(
+      "📋 Order details response:",
+      JSON.stringify(responseData, null, 2)
+    );
+
+    res.json(responseData);
   } catch (error) {
     console.error("Get order details error:", error);
     res
