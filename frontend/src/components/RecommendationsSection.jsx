@@ -286,13 +286,12 @@ const RecommendationsSection = ({
                   src={
                     book.product_image ||
                     book.image ||
-                    "https://via.placeholder.com/300x400?text=No+Image"
+                    "https://placehold.co/300x400?text=No+Image"
                   }
                   alt={book.product_name || book.title || "Book"}
                   className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                   onError={(e) => {
-                    e.target.src =
-                      "https://via.placeholder.com/300x400?text=No+Image";
+                    e.target.src = "https://placehold.co/300x400?text=No+Image";
                   }}
                 />
                 <button

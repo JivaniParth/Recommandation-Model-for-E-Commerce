@@ -82,7 +82,7 @@ app.post("/api/auth/register", async (req, res) => {
     // Check if user exists
     const existingUser = await db.execute(
       "SELECT * FROM users WHERE email = :email",
-      [email],
+      { email },
       { outFormat: db.OUT_FORMAT_OBJECT }
     );
 
@@ -95,29 +95,30 @@ app.post("/api/auth/register", async (req, res) => {
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Insert user
-    const result = await db.execute(
+    // Insert user (without RETURNING clause)
+    await db.execute(
       `INSERT INTO users (first_name, last_name, email, password_hash, phone, user_type)
-       VALUES (:firstName, :lastName, :email, :password, :phone, 'customer')
-       RETURNING user_id, first_name, last_name, email, phone, user_type, created_at INTO :id, :fname, :lname, :email_out, :phone_out, :type, :created`,
+       VALUES (:firstName, :lastName, :email, :password, :phone, 'customer')`,
       {
         firstName,
         lastName,
         email,
         password: hashedPassword,
         phone: phone || null,
-        id: { dir: db.BIND_OUT, type: db.NUMBER },
-        fname: { dir: db.BIND_OUT, type: db.STRING },
-        lname: { dir: db.BIND_OUT, type: db.STRING },
-        email_out: { dir: db.BIND_OUT, type: db.STRING },
-        phone_out: { dir: db.BIND_OUT, type: db.STRING },
-        type: { dir: db.BIND_OUT, type: db.STRING },
-        created: { dir: db.BIND_OUT, type: db.DATE },
       },
       { autoCommit: true }
     );
 
-    const userId = result.outBinds.id;
+    // Get the user that was just created
+    const result = await db.execute(
+      `SELECT user_id, first_name, last_name, email, phone, user_type, created_at 
+       FROM users WHERE email = :email`,
+      { email },
+      { outFormat: db.OUT_FORMAT_OBJECT }
+    );
+
+    const user = result.rows[0];
+    const userId = user.USER_ID;
 
     // Generate token
     const token = jwt.sign(
@@ -131,14 +132,12 @@ app.post("/api/auth/register", async (req, res) => {
       token,
       user: {
         id: userId,
-        firstName: result.outBinds.fname,
-        lastName: result.outBinds.lname,
-        email: result.outBinds.email_out,
-        phone: result.outBinds.phone_out,
-        user_type: result.outBinds.type,
-        joinedDate: result.outBinds.created
-          ? result.outBinds.created.toISOString()
-          : null,
+        firstName: user.FIRST_NAME,
+        lastName: user.LAST_NAME,
+        email: user.EMAIL,
+        phone: user.PHONE,
+        user_type: user.USER_TYPE,
+        joinedDate: user.CREATED_AT ? user.CREATED_AT.toISOString() : null,
         avatar: `https://ui-avatars.com/api/?name=${firstName}+${lastName}&background=6366f1&color=fff`,
       },
     });
@@ -485,12 +484,16 @@ app.get("/api/books/recommendations/:userId", async (req, res) => {
       FETCH FIRST :limit ROWS ONLY
     `;
 
-    const result = await db.execute(query, { limit }, {
-      outFormat: db.OUT_FORMAT_OBJECT,
-      fetchInfo: {
-        DESCRIPTION: { type: db.STRING }
+    const result = await db.execute(
+      query,
+      { limit },
+      {
+        outFormat: db.OUT_FORMAT_OBJECT,
+        fetchInfo: {
+          DESCRIPTION: { type: db.STRING },
+        },
       }
-    });
+    );
 
     const recommendations = result.rows.map((row) => ({
       product_id: row.ISBN,
@@ -501,9 +504,11 @@ app.get("/api/books/recommendations/:userId", async (req, res) => {
       price: row.PRICE,
       stock: row.STOCK,
       pages: row.PAGES,
-      description: row.DESCRIPTION || '',
+      description: row.DESCRIPTION || "",
       image: row.IMAGE,
-      publicationdate: row.PUBLICATIONDATE ? row.PUBLICATIONDATE.toISOString() : null,
+      publicationdate: row.PUBLICATIONDATE
+        ? row.PUBLICATIONDATE.toISOString()
+        : null,
       author: row.AUTHOR,
       publisher: row.PUBLISHER,
       categoryname: row.CATEGORYNAME,
@@ -513,14 +518,16 @@ app.get("/api/books/recommendations/:userId", async (req, res) => {
       score: row.SCORE || 5,
     }));
 
-    res.json({ 
-      success: true, 
+    res.json({
+      success: true,
       recommendations,
-      model: 'content' // Fallback model name
+      model: "content", // Fallback model name
     });
   } catch (error) {
     console.error("Get recommendations error:", error);
-    res.status(500).json({ success: false, error: "Failed to fetch recommendations" });
+    res
+      .status(500)
+      .json({ success: false, error: "Failed to fetch recommendations" });
   }
 });
 
@@ -528,13 +535,13 @@ app.get("/api/books/recommendations/:userId", async (req, res) => {
 app.post("/api/books/by-ids", async (req, res) => {
   try {
     const { ids } = req.body;
-    
+
     if (!ids || !Array.isArray(ids) || ids.length === 0) {
       return res.json({ success: true, books: [] });
     }
 
     // Create placeholders for IN clause
-    const placeholders = ids.map((_, index) => `:id${index}`).join(', ');
+    const placeholders = ids.map((_, index) => `:id${index}`).join(", ");
     const binds = {};
     ids.forEach((id, index) => {
       binds[`id${index}`] = id;
@@ -567,8 +574,8 @@ app.post("/api/books/by-ids", async (req, res) => {
     const result = await db.execute(query, binds, {
       outFormat: db.OUT_FORMAT_OBJECT,
       fetchInfo: {
-        DESCRIPTION: { type: db.STRING }
-      }
+        DESCRIPTION: { type: db.STRING },
+      },
     });
 
     const books = result.rows.map((row) => ({
@@ -578,9 +585,11 @@ app.post("/api/books/by-ids", async (req, res) => {
       price: row.PRICE,
       stock: row.STOCK,
       pages: row.PAGES,
-      description: row.DESCRIPTION || '',
+      description: row.DESCRIPTION || "",
       image: row.IMAGE,
-      publicationdate: row.PUBLICATIONDATE ? row.PUBLICATIONDATE.toISOString() : null,
+      publicationdate: row.PUBLICATIONDATE
+        ? row.PUBLICATIONDATE.toISOString()
+        : null,
       author: row.AUTHOR,
       publisher: row.PUBLISHER,
       categoryname: row.CATEGORYNAME,
@@ -830,6 +839,11 @@ app.post("/api/cart", authMiddleware, async (req, res) => {
   try {
     const { bookId, quantity = 1 } = req.body;
 
+    console.log("📦 Add to cart request:");
+    console.log("  - User ID:", req.userId);
+    console.log("  - Book ID:", bookId);
+    console.log("  - Quantity:", quantity);
+
     // Check if item already exists in cart
     const existingItem = await db.execute(
       `SELECT cart_item_id, quantity FROM cart_items WHERE user_id = :userId AND isbn = :isbn`,
@@ -840,6 +854,10 @@ app.post("/api/cart", authMiddleware, async (req, res) => {
     if (existingItem.rows.length > 0) {
       // Update quantity
       const newQuantity = existingItem.rows[0].QUANTITY + quantity;
+      console.log(
+        "  - Updating existing cart item, new quantity:",
+        newQuantity
+      );
       await db.execute(
         `UPDATE cart_items SET quantity = :quantity WHERE cart_item_id = :cartItemId`,
         {
@@ -850,6 +868,7 @@ app.post("/api/cart", authMiddleware, async (req, res) => {
       );
     } else {
       // Insert new item
+      console.log("  - Adding new cart item");
       await db.execute(
         `INSERT INTO cart_items (user_id, isbn, quantity) VALUES (:userId, :isbn, :quantity)`,
         { userId: req.userId, isbn: bookId, quantity },
@@ -857,9 +876,15 @@ app.post("/api/cart", authMiddleware, async (req, res) => {
       );
     }
 
+    console.log("✅ Cart item added successfully");
     res.json({ success: true, message: "Item added to cart" });
   } catch (error) {
-    console.error("Add to cart error:", error);
+    console.error("❌ Add to cart error:", error);
+    console.error("   Error details:", {
+      message: error.message,
+      code: error.errorNum,
+      offset: error.offset,
+    });
     res.status(500).json({ success: false, error: "Failed to add to cart" });
   }
 });
@@ -910,6 +935,11 @@ app.post("/api/orders", authMiddleware, async (req, res) => {
   try {
     const { shippingAddress, paymentMethod } = req.body;
 
+    console.log("📦 Create order request:");
+    console.log("  - User ID:", req.userId);
+    console.log("  - Shipping Address:", shippingAddress);
+    console.log("  - Payment Method:", paymentMethod);
+
     // Get cart items
     const cartResult = await db.execute(
       `SELECT c.isbn, c.quantity, b.price 
@@ -933,23 +963,28 @@ app.post("/api/orders", authMiddleware, async (req, res) => {
     // Generate order number
     const orderNumber = `ORD-${Date.now()}-${req.userId}`;
 
-    // Insert order
-    const orderResult = await db.execute(
+    // Insert order (without RETURNING clause)
+    await db.execute(
       `INSERT INTO orders (user_id, order_number, total_amount, shipping_address, payment_method, payment_status)
-       VALUES (:userId, :orderNumber, :totalAmount, :shippingAddress, :paymentMethod, 'pending')
-       RETURNING order_id INTO :orderId`,
+       VALUES (:userId, :orderNumber, :totalAmount, :shippingAddress, :paymentMethod, 'pending')`,
       {
         userId: req.userId,
         orderNumber,
         totalAmount,
         shippingAddress: shippingAddress || null,
         paymentMethod: paymentMethod || "COD",
-        orderId: { dir: db.BIND_OUT, type: db.NUMBER },
       },
       { autoCommit: false }
     );
 
-    const orderId = orderResult.outBinds.orderId;
+    // Get the order_id that was just inserted
+    const orderResult = await db.execute(
+      `SELECT order_id FROM orders WHERE order_number = :orderNumber`,
+      { orderNumber },
+      { outFormat: db.OUT_FORMAT_OBJECT }
+    );
+
+    const orderId = orderResult.rows[0].ORDER_ID;
 
     // Insert order items
     for (const item of cartResult.rows) {
@@ -984,7 +1019,12 @@ app.post("/api/orders", authMiddleware, async (req, res) => {
       message: "Order placed successfully",
     });
   } catch (error) {
-    console.error("Create order error:", error);
+    console.error("❌ Create order error:", error);
+    console.error("   Error details:", {
+      message: error.message,
+      code: error.errorNum,
+      offset: error.offset,
+    });
     await db.execute("ROLLBACK");
     res.status(500).json({ success: false, error: "Failed to create order" });
   }

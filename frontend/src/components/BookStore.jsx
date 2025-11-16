@@ -162,19 +162,23 @@ const BookStore = () => {
     }
 
     try {
-      const response = await apiService.addToCart(
-        book.id || book.product_id,
-        1
-      );
+      const bookId = book.id || book.product_id || book.isbn;
+      console.log("Adding to cart:", { bookId, book });
+
+      const response = await apiService.addToCart(bookId, 1);
+
       if (response.success) {
         const cartResponse = await apiService.getCart();
         if (cartResponse.success) {
           setCart(cartResponse.cart);
         }
+        alert("Item added to cart successfully!");
       }
     } catch (error) {
       console.error("Error adding to cart:", error);
-      alert("Failed to add item to cart. Please try again.");
+      alert(
+        `Failed to add item to cart: ${error.message || "Please try again."}`
+      );
     }
   };
 

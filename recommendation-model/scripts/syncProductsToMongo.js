@@ -93,12 +93,23 @@ async function syncProducts() {
 
     for (const row of result.rows) {
       try {
+        // Handle CLOB data for description
+        let description = "";
+        if (row.DESCRIPTION) {
+          if (typeof row.DESCRIPTION === "string") {
+            description = row.DESCRIPTION;
+          } else if (row.DESCRIPTION.getData) {
+            // It's a CLOB, read it
+            description = await row.DESCRIPTION.getData();
+          }
+        }
+
         // Extract keywords from title and description for better content matching
         const titleWords = row.TITLE
           ? row.TITLE.toLowerCase().split(/\s+/)
           : [];
-        const descWords = row.DESCRIPTION
-          ? row.DESCRIPTION.toLowerCase().split(/\s+/).slice(0, 20)
+        const descWords = description
+          ? description.toLowerCase().split(/\s+/).slice(0, 20)
           : [];
         const keywords = [...new Set([...titleWords, ...descWords])];
 
@@ -117,7 +128,7 @@ async function syncProducts() {
           price: row.PRICE,
           stock: row.STOCK_QUANTITY || 0,
           pages: row.PAGES,
-          description: row.DESCRIPTION || "",
+          description: description || "",
           image: row.IMAGE_URL,
           publication_date: row.PUBLICATION_DATE,
           rating: parseFloat(row.AVG_RATING) || 0,

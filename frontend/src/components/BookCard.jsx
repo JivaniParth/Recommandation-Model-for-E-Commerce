@@ -7,13 +7,11 @@ const BookCard = ({ book, favorites, toggleFavorite, addToCart }) => {
     <div className="group bg-white rounded-lg shadow-sm overflow-hidden border border-gray-200 hover:shadow-md transition-shadow duration-200">
       <div className="relative aspect-3/4 overflow-hidden">
         <img
-          src={
-            book.image || "https://via.placeholder.com/300x400?text=No+Image"
-          }
+          src={book.image || "https://placehold.co/300x400?text=No+Image"}
           alt={book.title || "Book"}
           className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
           onError={(e) => {
-            e.target.src = "https://via.placeholder.com/300x400?text=No+Image";
+            e.target.src = "https://placehold.co/300x400?text=No+Image";
           }}
         />
         <button
